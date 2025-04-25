@@ -46,51 +46,54 @@ jobs:
             wget
 
       # 4. Build & install gRPC v1.60.0 (Ubuntu 24.04 has no official package yet)
-      - name: Build gRPC (1.60.0)
+      - name: Build gRPC v1.60.0
         run: |
-          git clone --depth 1 --recurse-submodules -b v1.60.0 https://github.com/grpc/grpc /tmp/grpc
+          git clone --depth 1 --recurse-submodules -b v1.60.0 \
+          https://github.com/grpc/grpc /tmp/grpc
           cmake -S /tmp/grpc -B /tmp/grpc/build \
-                -DCMAKE_INSTALL_PREFIX=/usr/local \
-                -DBUILD_SHARED_LIBS=ON            \
-                -DgRPC_INSTALL=ON                 \
-                -DgRPC_BUILD_TESTS=OFF            \
-                -DgRPC_BUILD_CSHARP_EXT=OFF\
-                -DgRPC_BUILD_GRPC_CSHARP_PLUGIN=OFF \
-                -DgRPC_BUILD_GRPC_NODE_PLUGIN=OFF \
-                -DgRPC_BUILD_GRPC_OBJECTIVE_C_PLUGIN=OFF \
-                -DgRPC_BUILD_GRPC_PHP_PLUGIN=OFF \
-                -DgRPC_BUILD_GRPC_PYTHON_PLUGIN=OFF \
-                -DgRPC_BUILD_GRPC_RUBY_PLUGIN=OFF \
-                -DgRPC_BACKWARDS_COMPATIBILITY_MODE=ON \
-                -DgRPC_ZLIB_PROVIDER=package      \
-                -DgRPC_SSL_PROVIDER=package
+             -DCMAKE_INSTALL_PREFIX=/usr/local \
+             -DBUILD_SHARED_LIBS=ON \
+             -DgRPC_INSTALL=ON \
+             -DgRPC_BUILD_TESTS=OFF \
+             -DgRPC_ZLIB_PROVIDER=package \
+             -DgRPC_SSL_PROVIDER=package
           cmake --build /tmp/grpc/build -j"$(nproc)"
           sudo cmake --install /tmp/grpc/build
           sudo ldconfig
 
-      # 5. Configure the project
-      - name: Configure CMake
+      - name: Configure CMake & CPack
         run: |
-          cmake -S . -B build \
+          mkdir build
+          cd build
+          cmake .. \
+            -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_CXX_STANDARD=17 \
-            -DBUILD_ETCD_TESTS=ON   \
-            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
-      # 6. Build binary & create *.deb with CPack
-      - name: Build & package
+      - name: Build
+        run: cmake --build build --config Release -- -j"$(nproc)"
+
+      - name: Package .deb via CPack
         run: |
-          cmake --build build --config Release -- -j"$(nproc)"
-          cmake --build build --target package
+          cd build
+          cpack --config ../CPackConfig.cmake -G DEB
 
-      # 7. Upload resulting .deb artefacts
-      - name: Upload Deb package
-        uses: actions/upload-artifact@v4
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
         with:
-          name: debian-package
-          path: build/*.deb
+          tag_name: ${{ github.ref_name }}
+          release_name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
 
-      # 8. Show ccache statistics even if the job fails
-      - name: ccache stats
+      - name: Upload .deb to Release
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: build/*.deb
+          asset_name: ${{ runner.os }}-${{ github.repository }}-${{ github.ref_name }}.deb
+          asset_content_type: application/vnd.debian.binary-package
+
+      - name: Show ccache stats
         if: always()
         run: ccache --show-stats
