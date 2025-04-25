@@ -128,7 +128,7 @@ jobs:
 
       - name: Setup tmate session
         if: false
-        uses: mxschmitt/action-tmate@v4
+        uses: mxschmitt/action-tmate@v3
 
       - name: CMake
         run: |
@@ -183,7 +183,7 @@ jobs:
 
       - name: Setup tmate session
         if: false
-        uses: mxschmitt/action-tmate@v4
+        uses: mxschmitt/action-tmate@v3
 
       - name: Test
         run: |
