@@ -51,12 +51,33 @@ jobs:
       - name: Install grpc for Ubuntu 20.04
         if: matrix.os == 'ubuntu-24.04'
         run: |
-          sudo apt install -y libcurl4-openssl-dev \
-                              libprotobuf-dev \
-                              libprotoc-dev \
-                              libgrpc-dev \
-                              libgrpc++-dev \
-                              protobuf-compiler-grpc
+#          sudo apt install -y libcurl4-openssl-dev \
+#                              libprotobuf-dev \
+#                              libprotoc-dev \
+#                              libgrpc-dev \
+#                              libgrpc++-dev \
+#                              protobuf-compiler-grpc
+          git clone --progress --recurse-submodules --depth 1 --shallow-submodules -b v1.60.0 https://github.com/grpc/grpc /opt/grpc && \
+          cd /opt/grpc && \
+          mkdir -p cmake/build && \
+          cd cmake/build && \
+          cmake -DCMAKE_INSTALL_PREFIX=/usr/local ../.. \
+               -DBUILD_SHARED_LIBS=ON \
+               -DgRPC_INSTALL=ON \
+               -DgRPC_BUILD_TESTS=OFF \
+               -DgRPC_BUILD_CSHARP_EXT=OFF \
+               -DgRPC_BUILD_GRPC_CSHARP_PLUGIN=OFF \
+               -DgRPC_BUILD_GRPC_NODE_PLUGIN=OFF \
+               -DgRPC_BUILD_GRPC_OBJECTIVE_C_PLUGIN=OFF \
+               -DgRPC_BUILD_GRPC_PHP_PLUGIN=OFF \
+               -DgRPC_BUILD_GRPC_PYTHON_PLUGIN=OFF \
+               -DgRPC_BUILD_GRPC_RUBY_PLUGIN=OFF \
+               -DgRPC_BACKWARDS_COMPATIBILITY_MODE=ON \
+               -DgRPC_ZLIB_PROVIDER=package \
+               -DgRPC_SSL_PROVIDER=package \
+          make -j$(nproc) && \
+          make install
+
 
       - name: Screen fetch
         run: |
