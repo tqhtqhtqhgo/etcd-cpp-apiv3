@@ -1,147 +1,89 @@
-name: Build Deb Package
+name: Build Debian Package
 
-on: [push, pull_request]
+on: [push, pull_request, workflow_dispatch]
 
 concurrency:
-  group: ${{ github.repository }}-${{ github.event.number || github.head_ref || github.sha }}-${{ github.workflow }}
+  group: ${{ github.workflow }}-${{ github.ref_name }}
   cancel-in-progress: true
 
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-24.04]
+    runs-on: ubuntu-24.04
+
     steps:
-      - uses: actions/checkout@v4
+      # 1. Fetch sources (incl. submodules)
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           submodules: true
 
-      - name: Get time
-        run: |
-          date +'%Y-%m' > snapshot.txt
-
-      - name: Cache for cccahe
+      # 2. Cache ccache
+      - name: Cache ccache
         uses: actions/cache@v4
         with:
-          path: /home/runner/.ccache
-          key: ${{ runner.os }}-deb-ccache-${{ hashFiles('**/snapshot.txt') }}
+          path: ~/.ccache
+          key: ccache-${{ runner.os }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-deb-ccache-
+            ccache-${{ runner.os }}-
 
-      - name: Install dependencies for Linux
-        if: ${{ runner.os == 'Linux' }}
+      # 3. System packages required to build, package, and sign
+      - name: Install build dependencies
         run: |
-          sudo apt update -y
-          sudo apt install -y ca-certificates \
-                              ccache \
-                              cmake \
-                              debhelper \
-                              devscripts \
-                              libboost-all-dev \
-                              libcpprest-dev \
-                              libcurl4-openssl-dev \
-                              libssl-dev \
-                              libz-dev \
-                              lsb-release \
-                              openssl \
-                              screenfetch \
-                              wget
+          sudo apt-get update -y
+          sudo apt-get install -y --no-install-recommends \
+            ca-certificates               \
+            ccache                         \
+            cmake                          \
+            debhelper                      \
+            devscripts                     \
+            libboost-all-dev               \
+            libcpprest-dev                 \
+            libcurl4-openssl-dev           \
+            libssl-dev                     \
+            libz-dev                       \
+            lsb-release                    \
+            openssl                        \
+            wget
 
-      - name: Install grpc for Ubuntu 20.04
-        if: matrix.os == 'ubuntu-24.04'
+      # 4. Build & install gRPC v1.60.0 (Ubuntu 24.04 has no official package yet)
+      - name: Build gRPC (1.60.0)
         run: |
-#          sudo apt install -y libcurl4-openssl-dev \
-#                              libprotobuf-dev \
-#                              libprotoc-dev \
-#                              libgrpc-dev \
-#                              libgrpc++-dev \
-#                              protobuf-compiler-grpc
-          git clone --progress --recurse-submodules --depth 1 --shallow-submodules -b v1.60.0 https://github.com/grpc/grpc /opt/grpc && \
-          cd /opt/grpc && \
-          mkdir -p cmake/build && \
-          cd cmake/build && \
-          cmake -DCMAKE_INSTALL_PREFIX=/usr/local ../.. \
-               -DBUILD_SHARED_LIBS=ON \
-               -DgRPC_INSTALL=ON \
-               -DgRPC_BUILD_TESTS=OFF \
-               -DgRPC_BUILD_CSHARP_EXT=OFF \
-               -DgRPC_BUILD_GRPC_CSHARP_PLUGIN=OFF \
-               -DgRPC_BUILD_GRPC_NODE_PLUGIN=OFF \
-               -DgRPC_BUILD_GRPC_OBJECTIVE_C_PLUGIN=OFF \
-               -DgRPC_BUILD_GRPC_PHP_PLUGIN=OFF \
-               -DgRPC_BUILD_GRPC_PYTHON_PLUGIN=OFF \
-               -DgRPC_BUILD_GRPC_RUBY_PLUGIN=OFF \
-               -DgRPC_BACKWARDS_COMPATIBILITY_MODE=ON \
-               -DgRPC_ZLIB_PROVIDER=package \
-               -DgRPC_SSL_PROVIDER=package \
-          make -j$(nproc) && \
-          make install
+          git clone --depth 1 --recurse-submodules -b v1.60.0 https://github.com/grpc/grpc /tmp/grpc
+          cmake -S /tmp/grpc -B /tmp/grpc/build \
+                -DCMAKE_INSTALL_PREFIX=/usr/local \
+                -DBUILD_SHARED_LIBS=ON            \
+                -DgRPC_INSTALL=ON                 \
+                -DgRPC_BUILD_TESTS=OFF            \
+                -DgRPC_BACKWARDS_COMPATIBILITY_MODE=ON \
+                -DgRPC_ZLIB_PROVIDER=package      \
+                -DgRPC_SSL_PROVIDER=package
+          cmake --build /tmp/grpc/build -j"$(nproc)"
+          sudo cmake --install /tmp/grpc/build
+          sudo ldconfig
 
-
-      - name: Screen fetch
+      # 5. Configure the project
+      - name: Configure CMake
         run: |
-          screenfetch
+          cmake -S . -B build \
+            -DCMAKE_CXX_STANDARD=17 \
+            -DBUILD_ETCD_TESTS=ON   \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
-      - name: Setup tmate session
-        if: false
-        uses: mxschmitt/action-tmate@v3
-
-      - name: Prepare gpg environment
+      # 6. Build binary & create *.deb with CPack
+      - name: Build & package
         run: |
-          cat > gpg-script <<EOF
-              %echo Generating a OpenPGP key
-              Key-Type: DSA
-              Key-Length: 1024
-              Subkey-Type: ELG-E
-              Subkey-Length: 1024
-              Name-Real: Tao He
-              Name-Email: sighingnow@gmail.com
-              Expire-Date: 0
-              Passphrase: etcd-passphrase
-              # Do a commit here, so that we can later print "done" :-)
-              %commit
-              %echo done
-          EOF
+          cmake --build build --config Release -- -j"$(nproc)"
+          cmake --build build --target package
 
-          gpg --batch --gen-key gpg-script
-
-      - name: CMake
-        run: |
-          export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
-
-          mkdir -p build
-          cd build
-          cmake .. -DCMAKE_CXX_STANDARD=17 \
-                   -DCMAKE_CXX_STANDARD_REQUIRED=TRUE \
-                   -DBUILD_ETCD_TESTS=ON \
-                   -DCMAKE_C_COMPILER_LAUNCHER=ccache \
-                   -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
-
-      - name: Generate PPA source tarball
-        if: false
-        run: |
-          export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
-
-          mkdir -p build
-          cd build
-
-      - name: Generate Deb package
-        run: |
-          export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
-
-          mkdir -p build
-          cd build
-
-          cpack -G DEB
-
-      - name: Upload deb package
-        if: always()
-        uses: actions/upload-artifact@v2
+      # 7. Upload resulting .deb artefacts
+      - name: Upload Deb package
+        uses: actions/upload-artifact@v4
         with:
-          name: deb package
+          name: debian-package
           path: build/*.deb
 
-      - name: Check ccache
-        run: |
-          ccache --show-stats
+      # 8. Show ccache statistics even if the job fails
+      - name: ccache stats
+        if: always()
+        run: ccache --show-stats
