@@ -30,7 +30,7 @@ jobs:
             ${{ runner.os }}-deb-ccache-
 
       - name: Install dependencies for Linux
-        if: runner.os == 'Linux'
+        if: ${{ runner.os == 'Linux' }}
         run: |
           sudo apt update -y
           sudo apt install -y ca-certificates \
