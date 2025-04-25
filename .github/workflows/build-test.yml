@@ -16,7 +16,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04]
-        etcd: [v3.5.9]
+        #etcd: [v3.5.9]
     steps:
       - uses: actions/checkout@v3
         with:
