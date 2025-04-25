@@ -54,6 +54,13 @@ jobs:
                 -DBUILD_SHARED_LIBS=ON            \
                 -DgRPC_INSTALL=ON                 \
                 -DgRPC_BUILD_TESTS=OFF            \
+                -DgRPC_BUILD_CSHARP_EXT=OFF\
+                -DgRPC_BUILD_GRPC_CSHARP_PLUGIN=OFF \
+                -DgRPC_BUILD_GRPC_NODE_PLUGIN=OFF \
+                -DgRPC_BUILD_GRPC_OBJECTIVE_C_PLUGIN=OFF \
+                -DgRPC_BUILD_GRPC_PHP_PLUGIN=OFF \
+                -DgRPC_BUILD_GRPC_PYTHON_PLUGIN=OFF \
+                -DgRPC_BUILD_GRPC_RUBY_PLUGIN=OFF \
                 -DgRPC_BACKWARDS_COMPATIBILITY_MODE=ON \
                 -DgRPC_ZLIB_PROVIDER=package      \
                 -DgRPC_SSL_PROVIDER=package
