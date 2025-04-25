@@ -18,7 +18,7 @@ jobs:
         os: [ubuntu-24.04]
         #etcd: [v3.5.9]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: true
 
@@ -27,7 +27,7 @@ jobs:
           date +'%Y-%m' > snapshot.txt
 
       - name: Cache for cccahe
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: /home/runner/.ccache
           key: ${{ runner.os }}-ccache-${{ hashFiles('**/snapshot.txt') }}
@@ -128,7 +128,7 @@ jobs:
 
       - name: Setup tmate session
         if: false
-        uses: mxschmitt/action-tmate@v3
+        uses: mxschmitt/action-tmate@v4
 
       - name: CMake
         run: |
@@ -183,7 +183,7 @@ jobs:
 
       - name: Setup tmate session
         if: false
-        uses: mxschmitt/action-tmate@v3
+        uses: mxschmitt/action-tmate@v4
 
       - name: Test
         run: |

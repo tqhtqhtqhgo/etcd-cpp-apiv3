@@ -22,7 +22,7 @@ jobs:
           date +'%Y-%m' > snapshot.txt
 
       - name: Cache for cccahe
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: /home/runner/.ccache
           key: ${{ runner.os }}-deb-ccache-${{ hashFiles('**/snapshot.txt') }}
@@ -64,7 +64,7 @@ jobs:
 
       - name: Setup tmate session
         if: false
-        uses: mxschmitt/action-tmate@v3
+        uses: mxschmitt/action-tmate@v4
 
       - name: Prepare gpg environment
         run: |
@@ -116,7 +116,7 @@ jobs:
 
       - name: Upload deb package
         if: always()
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: deb package
           path: build/*.deb
