@@ -38,11 +38,7 @@ jobs:
             devscripts                     \
             libboost-all-dev               \
             libcpprest-dev                 \
-            libcurl4-openssl-dev           \
             libssl-dev                     \
-            libz-dev                       \
-            lsb-release                    \
-            openssl                        \
             wget
 
       # 4. Build & install gRPC v1.60.0 (Ubuntu 24.04 has no official package yet)
@@ -65,9 +61,7 @@ jobs:
         run: |
           mkdir build
           cd build
-          cmake .. \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_CXX_STANDARD=17 \
+          cmake .. -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
         run: cmake --build build --config Release -- -j"$(nproc)"
@@ -75,7 +69,7 @@ jobs:
       - name: Package .deb via CPack
         run: |
           cd build
-          cpack --config ../CPackConfig.cmake -G DEB
+          cpack -G DEB
 
       - name: Create GitHub Release
         id: create_release
